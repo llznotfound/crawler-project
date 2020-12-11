@@ -1,0 +1,1 @@
+This is a project for learning web crawler technology, mainly including some implementation codes of simple functions.
