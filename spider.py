@@ -1,5 +1,7 @@
+import sqlite3
 import urllib.request
 import re
+import xlwt
 from bs4 import BeautifulSoup
 
 
@@ -35,6 +37,9 @@ def parse_data(html):
     pattern_people = re.compile(r'<span>(\d*)人评价</span>')
     pattern_quote = re.compile(r'<span class="inq">(.*)</span>')
     pattern_bd = re.compile(r'<p class="">(.*?)</p>', re.S)
+
+    # 除了使用上述正则表示式进行页面的所有内容匹配之外，也可以利用BeautifulSoup提供的的select方法进行 标签tap、类class、id的选择匹配
+    # bs.select('div > .class > #id') >表示在当前层级下面找
 
     soup = BeautifulSoup(html, 'html.parser')
     data_list = []
@@ -85,15 +90,61 @@ def get_data(base_url):
         data = parse_data(html)
         data_list.extend(data)
 
-    print(data_list)
+    # print(data_list)
     return data_list
+
+
+def save_data(save_file, data_list):
+    print('saving data to fie: ' + save_file)
+    work_book = xlwt.Workbook(encoding='utf-8', style_compression=0)
+    sheet = work_book.add_sheet('top250', cell_overwrite_ok=True)
+    header = ('电影序号', '电影详情页链接', '封面图片链接', '电影中文名', '电影英文名', '电影评分', '评分人数', '电影简评', '影片信息')
+    for i in range(len(header)):
+        sheet.write(0, i, header[i])
+
+    for i in range(len(data_list)):
+        print('第%d部电影写入' % (i+1))
+        one_movie = data_list[i]
+        sheet.write(i+1, 0, i+1)
+        for j in range(len(one_movie)):
+            sheet.write(i+1, j+1, one_movie[j])
+
+    work_book.save(save_file)
+    print('data save success.')
+
+
+def save2db(dbname, data_list):
+    conn = sqlite3.connect(dbname)
+    cursor = conn.cursor()
+
+    for i in range(len(data_list)):
+        movie = data_list[i]
+        sql = 'insert into top250 (id, link, img, cname, fname, rating, people, quote, bdinfo) values('
+        sql += str(i+1)
+        for item in movie:
+            sql += ',' + '"' + item + '"'
+        sql += ')'
+        # print(sql)
+        # 也可以在sql中用占位符的方法
+        # sql = 'insert into top250 (id, link, img, cname, fname, rating, people, quote, bdinfo) values(%s)'%
+        # 后面加上数据拼接而成的字符串内容
+        cursor.execute(sql)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print('data save to db success.')
 
 
 def main():
     base_url = 'https://movie.douban.com/top250?start='
+    save_file = 'top250.xls'
+    dbname = 'spider.db'
     # html = ask_url(base_url)
     # parse_data(html)
     data_list = get_data(base_url)
+    # save_data(save_file, data_list)
+    save2db(dbname, data_list)
 
 
 if __name__ == '__main__':
